@@ -1,157 +1,138 @@
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, X, FileText } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Check, X, FileText, Loader2, RefreshCw } from "lucide-react";
 
 export default function AdminKYC() {
   const [requests, setRequests] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   const fetchRequests = async () => {
-    setIsLoading(true);
-    try {
-      // On cherche les utilisateurs ayant un statut KYC 'pending'
-      // Si vous avez une table séparée 'kyc_documents', adaptez la requête
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('kyc_status', 'pending');
+    setLoading(true);
+    // On joint la table kyc_documents avec users
+    const { data, error } = await supabase
+      .from('kyc_documents')
+      .select(`
+        id,
+        document_url,
+        document_type,
+        created_at,
+        status,
+        users (
+          id,
+          name,
+          email,
+          kyc_status
+        )
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
+    if (error) {
+      console.error(error);
+      toast.error("Erreur de chargement");
+    } else {
       setRequests(data || []);
-    } catch (error: any) {
-      // Ignorer l'erreur silencieusement si la colonne n'existe pas encore pour éviter de bloquer l'UI
-      console.log("Info KYC:", error.message);
-      setRequests([]); 
-    } finally {
-      setIsLoading(false);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchRequests();
   }, []);
 
-  const handleDecision = async (userId: string, decision: 'approved' | 'rejected') => {
+  const handleReview = async (docId: number, userId: number, status: 'approved' | 'rejected') => {
     try {
-      const { error } = await supabase
+      // 1. Mise à jour du document
+      const { error: docError } = await supabase
+        .from('kyc_documents')
+        .update({ status: status, reviewed_at: new Date().toISOString() })
+        .eq('id', docId);
+
+      if (docError) throw docError;
+
+      // 2. Mise à jour de l'utilisateur (Badge)
+      const userStatus = status === 'approved' ? 'verified' : 'rejected';
+      const { error: userError } = await supabase
         .from('users')
-        .update({ kyc_status: decision })
+        .update({ kyc_status: userStatus })
         .eq('id', userId);
 
-      if (error) throw error;
-      toast.success(`Dossier ${decision === 'approved' ? 'approuvé' : 'rejeté'}`);
+      if (userError) throw userError;
+
+      toast.success(status === 'approved' ? "Utilisateur validé !" : "Demande rejetée");
       fetchRequests();
-    } catch (error: any) {
-      toast.error("Erreur: " + error.message);
+
+    } catch (e: any) {
+      toast.error("Erreur: " + e.message);
     }
+  };
+
+  const viewDocument = async (path: string) => {
+    // Création d'une URL temporaire pour voir le fichier privé
+    const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(path, 60);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    else toast.error("Impossible d'ouvrir le document");
   };
 
   return (
     <div className="space-y-6 p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Vérifications KYC</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold font-serif text-[#1A1714]">Validation KYC</h1>
+        <Button variant="outline" size="sm" onClick={fetchRequests}><RefreshCw className="h-4 w-4 mr-2" /> Actualiser</Button>
       </div>
-
-      <div className="border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Utilisateur</TableHead>
-              <TableHead>Date soumission</TableHead>
-              <TableHead>Document</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                </TableCell>
-              </TableRow>
-            ) : requests.length > 0 ? (
-              requests.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell className="font-medium">
-                    {req.name} <br/>
-                    <span className="text-xs text-muted-foreground">{req.email}</span>
-                  </TableCell>
-                  <TableCell>
-                    {req.kyc_submitted_at ? new Date(req.kyc_submitted_at).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <FileText className="h-4 w-4 mr-2" /> Voir document
+      
+      <Card>
+        <CardHeader><CardTitle>Documents en attente ({requests.length})</CardTitle></CardHeader>
+        <CardContent>
+          {requests.length === 0 ? (
+            <div className="text-center py-12 text-[#9A948D]">
+              <p>Aucun document à valider pour le moment.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Utilisateur</TableHead>
+                  <TableHead>Document</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>
+                      <div className="font-medium">{req.users?.name || "Inconnu"}</div>
+                      <div className="text-xs text-muted-foreground">{req.users?.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="uppercase text-xs font-bold bg-gray-100 px-2 py-1 rounded">{req.document_type}</span>
+                        <Button variant="ghost" size="sm" onClick={() => viewDocument(req.document_url)}>
+                          <FileText className="h-4 w-4 text-[#C75B39]" />
                         </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Document d'identité</DialogTitle>
-                        </DialogHeader>
-                        <div className="aspect-video bg-muted flex items-center justify-center rounded-lg overflow-hidden">
-                          {req.kyc_document_url ? (
-                            <img src={req.kyc_document_url} alt="KYC" className="w-full h-full object-contain" />
-                          ) : (
-                            <p>Aucun document chargé</p>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className="bg-yellow-500">En attente</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        size="sm" 
-                        className="bg-green-600 hover:bg-green-700"
-                        onClick={() => handleDecision(req.id, 'approved')}
-                      >
+                      </div>
+                    </TableCell>
+                    <TableCell>{new Date(req.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button size="sm" className="bg-[#5C6B4A]" onClick={() => handleReview(req.id, req.users.id, 'approved')}>
                         <Check className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive"
-                        onClick={() => handleDecision(req.id, 'rejected')}
-                      >
+                      <Button size="sm" variant="destructive" onClick={() => handleReview(req.id, req.users.id, 'rejected')}>
                         <X className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                  Aucune demande de vérification en attente.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
