@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import {
   Store,
@@ -51,7 +51,9 @@ interface Activity {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  // ✅ CORRECTION: Ajouter profile
+  const { user, profile } = useAuth();
+  const [, setLocation] = useLocation();
   const [firstName, setFirstName] = useState("Utilisateur");
   const [stats, setStats] = useState<Stats>({
     activeServices: 0,
@@ -75,17 +77,18 @@ export default function Dashboard() {
       if (!user?.id) return;
 
       try {
-        // 1. Vérifier les métadonnées de session
-        const sessionName = user.user_metadata?.full_name || user.user_metadata?.name || user.name;
+        // ✅ CORRECTION: Retirer full_name
+        const sessionName = user.user_metadata?.name || user.name || profile?.name;
 
         if (sessionName && sessionName !== "Utilisateur") {
           setFirstName(sessionName.split(' ')[0]);
         } else {
           // 2. Récupérer depuis la base de données
+          // ✅ CORRECTION: Retirer full_name + utiliser auth_id
           const { data, error } = await supabase
             .from('users')
-            .select('full_name, name')
-            .eq('id', user.id)
+            .select('name')
+            .eq('auth_id', user.id)
             .single();
 
           if (error) {
@@ -94,7 +97,8 @@ export default function Dashboard() {
           }
 
           if (data) {
-            const dbName = data.full_name || data.name || "Utilisateur";
+            // ✅ CORRECTION: Retirer data.full_name
+            const dbName = data.name || "Utilisateur";
             setFirstName(dbName.split(' ')[0]);
           }
         }
@@ -104,7 +108,7 @@ export default function Dashboard() {
     }
 
     loadUserName();
-  }, [user]);
+  }, [user, profile]);
 
   // Chargement des statistiques et activités
   useEffect(() => {
@@ -114,8 +118,8 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
 
-        // Charger les statistiques selon le type d'utilisateur
-        if (user.is_seller) {
+        // ✅ CORRECTION: Utiliser profile.is_seller
+        if (profile?.is_seller || user.is_seller) {
           await loadSellerStats();
         } else {
           await loadBuyerStats();
@@ -135,7 +139,7 @@ export default function Dashboard() {
     }
 
     loadDashboardData();
-  }, [user]);
+  }, [user, profile]);
 
   // Chargement des stats vendeur
   async function loadSellerStats() {
@@ -254,7 +258,8 @@ export default function Dashboard() {
     if (!user?.id) return;
 
     try {
-      const query = user.is_seller
+      // ✅ CORRECTION: Utiliser profile.is_seller
+      const query = (profile?.is_seller || user.is_seller)
         ? supabase
             .from('orders')
             .select('id, title, status, price, created_at')
@@ -311,90 +316,90 @@ export default function Dashboard() {
     }
   }
 
+  // Helper pour formatter les prix
   const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString('fr-FR')} F`;
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount) + ' F';
   };
 
-  const sellerStats = user?.is_seller ? [
+  // ✅ CORRECTION: Utiliser profile.is_seller
+  const sellerStats = (profile?.is_seller || user?.is_seller) ? [
     {
-      title: "Services actifs",
+      title: 'Services actifs',
       value: stats.activeServices,
       icon: Store,
       color: '#C75B39',
       bgColor: 'rgba(199, 91, 57, 0.1)',
-      href: "/dashboard/services",
+      href: '/dashboard/services'
     },
     {
-      title: "Commandes en cours",
+      title: 'Commandes actives',
       value: stats.activeOrders,
-      icon: Clock,
-      color: '#8B4513',
-      bgColor: 'rgba(139, 69, 19, 0.1)',
-      href: "/dashboard/orders",
-    },
-    {
-      title: "Commandes terminées",
-      value: stats.completedOrders,
-      icon: CheckCircle2,
+      icon: ShoppingBag,
       color: '#5C6B4A',
       bgColor: 'rgba(92, 107, 74, 0.1)',
-      href: "/dashboard/orders",
+      href: '/dashboard/orders'
     },
     {
-      title: "Revenus totaux",
+      title: 'Commandes terminées',
+      value: stats.completedOrders,
+      icon: CheckCircle2,
+      color: '#8B4513',
+      bgColor: 'rgba(139, 69, 19, 0.1)',
+      href: '/dashboard/orders'
+    },
+    {
+      title: 'Revenus totaux',
       value: formatCurrency(stats.totalEarnings),
       icon: TrendingUp,
-      color: '#C75B39',
-      bgColor: 'rgba(199, 91, 57, 0.1)',
-      href: "/dashboard/wallet",
+      color: '#1A1714',
+      bgColor: 'rgba(26, 23, 20, 0.05)',
+      href: '/dashboard/wallet'
     },
   ] : [
     {
-      title: "Mes projets",
+      title: 'Projets publiés',
       value: stats.totalProjects,
       icon: FolderKanban,
       color: '#C75B39',
       bgColor: 'rgba(199, 91, 57, 0.1)',
-      href: "/dashboard/projects",
+      href: '/dashboard/projects'
     },
     {
-      title: "Commandes actives",
+      title: 'Commandes actives',
       value: stats.activeOrders,
-      icon: Clock,
-      color: '#8B4513',
-      bgColor: 'rgba(139, 69, 19, 0.1)',
-      href: "/dashboard/orders",
-    },
-    {
-      title: "Commandes terminées",
-      value: stats.completedOrders,
-      icon: CheckCircle2,
+      icon: ShoppingBag,
       color: '#5C6B4A',
       bgColor: 'rgba(92, 107, 74, 0.1)',
-      href: "/dashboard/orders",
+      href: '/dashboard/orders'
     },
     {
-      title: "Total dépensé",
+      title: 'Commandes terminées',
+      value: stats.completedOrders,
+      icon: CheckCircle2,
+      color: '#8B4513',
+      bgColor: 'rgba(139, 69, 19, 0.1)',
+      href: '/dashboard/orders'
+    },
+    {
+      title: 'Total dépensé',
       value: formatCurrency(stats.totalSpent),
-      icon: ShoppingBag,
-      color: '#C75B39',
-      bgColor: 'rgba(199, 91, 57, 0.1)',
-      href: "/dashboard/orders",
+      icon: Wallet,
+      color: '#1A1714',
+      bgColor: 'rgba(26, 23, 20, 0.05)',
+      href: '/dashboard/wallet'
     },
   ];
 
-  // État de chargement
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-48"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
-          ))}
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-sm border-4 border-t-transparent animate-spin mx-auto mb-4" style={{ borderColor: '#C75B39', borderTopColor: 'transparent' }} />
+          <p style={{ color: '#6B6560' }}>Chargement de votre dashboard...</p>
         </div>
       </div>
     );
@@ -414,7 +419,8 @@ export default function Dashboard() {
         </div>
 
         {/* Boutons d'action */}
-        {user?.is_seller ? (
+        {/* ✅ CORRECTION: Utiliser profile.is_seller */}
+        {(profile?.is_seller || user?.is_seller) ? (
           <Link href="/dashboard/services/new">
             <Button className="rounded-sm min-h-[48px]" style={{ background: '#C75B39', color: '#FFFDFB' }}>
               <Plus className="h-4 w-4 mr-2" />
@@ -427,9 +433,9 @@ export default function Dashboard() {
               className="rounded-sm min-h-[48px]" 
               style={{ background: '#C75B39', color: '#FFFDFB' }}
               onClick={(e) => {
-                // Si la route /new n'existe pas, on redirige vers /projects
+                // ✅ CORRECTION: Utiliser setLocation au lieu de window.location
                 e.preventDefault();
-                window.location.href = '/dashboard/projects';
+                setLocation('/dashboard/projects');
               }}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -476,7 +482,8 @@ export default function Dashboard() {
             <p className="text-4xl font-bold mt-2" style={{ fontFamily: 'Playfair Display, serif', color: '#FAF7F2' }}>
               {formatCurrency(stats.balance)}
             </p>
-            {user?.is_seller && stats.pendingBalance > 0 && (
+            {/* ✅ CORRECTION: Utiliser profile.is_seller */}
+            {(profile?.is_seller || user?.is_seller) && stats.pendingBalance > 0 && (
               <p className="text-sm mt-2 flex items-center gap-1" style={{ color: 'rgba(250, 247, 242, 0.6)' }}>
                 <Clock className="h-3 w-3" />
                 + {formatCurrency(stats.pendingBalance)} en attente
