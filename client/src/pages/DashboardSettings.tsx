@@ -102,7 +102,7 @@ export default function DashboardSettings() {
       if (updateError) throw updateError;
       
       toast.success("Photo de profil mise à jour !");
-      setTimeout(() => window.location.reload(), 1000);
+      // setTimeout(() => window.location.reload(), 1000);
 
     } catch (error: any) {
       console.error('❌ Upload error:', error);
@@ -150,7 +150,7 @@ export default function DashboardSettings() {
 
       if (error) throw error;
       toast.success("Profil mis à jour avec succès !");
-      setTimeout(() => window.location.reload(), 1000);
+      // setTimeout(() => window.location.reload(), 1000);
 
     } catch (error: any) {
       console.error('❌ Update error:', error);
@@ -168,12 +168,30 @@ export default function DashboardSettings() {
 
   // ✅ CORRECTION LIGNE 181: Utiliser authLoading au lieu de loading
   if (authLoading) {
-    return (
+    
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const words = name.trim().split(' ');
+    return words.length >= 2
+      ? (words[0][0] + words[1][0]).toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+  };
+
+  return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
+
+  
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const words = name.trim().split(' ');
+    return words.length >= 2
+      ? (words[0][0] + words[1][0]).toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -202,7 +220,7 @@ export default function DashboardSettings() {
                     alt="Photo de profil"
                   />
                   <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                    {formData.name?.charAt(0)?.toUpperCase() || "U"}
+                    {getInitials(formData.name)}
                   </AvatarFallback>
                 </Avatar>
 
@@ -335,7 +353,7 @@ export default function DashboardSettings() {
           </CardContent>
         </Card>
 
-        {/* ✅ CORRECTION: Utiliser profile.is_seller au lieu de profile.isSeller */}
+        {/* ✅ CORRECTION: Utiliser profile.is_seller au lieu de profile.is_seller */}
         {(profile?.is_seller) && (
           <Card>
             <CardHeader>
