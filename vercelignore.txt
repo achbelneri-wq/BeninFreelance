@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts (will be rebuilt on Vercel)
+dist/
+.output/
+
+# Environment files (use Vercel Environment Variables instead)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+coverage/
+*.test.ts
+*.spec.ts
+
+# Logs
+*.log
+server.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Development files
+*.md
+CHANGELOG.md
+README.md
+LICENSE
+
+# Scripts not needed for production
+scripts/
+patches/
+
+# Database files
+*.sql
+supabase/
+drizzle.config.ts
