@@ -1,6 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import DashboardHeader from "@/components/DashboardHeader";
 import { Loader2 } from "lucide-react";
@@ -14,6 +13,20 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const { loading, isAuthenticated } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // ✅ CORRECTION CRITIQUE: Éviter la boucle infinie de redirection
+  useEffect(() => {
+    if (!loading && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
+      // Utiliser un délai pour éviter les multiples appels
+      const timer = setTimeout(() => {
+        window.location.href = getLoginUrl();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, isAuthenticated, redirecting]);
 
   // Loading state
   if (loading) {
@@ -31,10 +44,20 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
     );
   }
 
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    window.location.href = getLoginUrl();
-    return null;
+  // ✅ CORRECTION: Afficher loading pendant la redirection au lieu de null
+  if (!isAuthenticated || redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FAF7F2' }}>
+        <div className="text-center">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-sm flex items-center justify-center mx-auto mb-4" style={{ background: '#C75B39' }}>
+              <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#FFFDFB' }} />
+            </div>
+          </div>
+          <p style={{ color: '#6B6560' }}>Redirection...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
