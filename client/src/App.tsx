@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useRBAC } from "@/hooks/useRBAC";
+import KYC from "@/pages/KYC";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
@@ -111,7 +112,11 @@ function RouterContent() {
       <Route path="/dashboard" component={() => (
         <DashboardLayout><Dashboard /></DashboardLayout>
       )} />
-      <Route path="/dashboard/services" component={() => (
+      <Route path="/dashboard/kyc" component={() => (
+  <DashboardLayout><KYC /></DashboardLayout>
+)} />
+
+<Route path="/dashboard/services" component={() => (
         <DashboardLayout><DashboardServices /></DashboardLayout>
       )} />
       <Route path="/dashboard/services/new" component={() => (
