@@ -71,7 +71,7 @@ const SKILL_SUGGESTIONS = [
 ];
 
 export default function FreelanceProfile() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, profile, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newSkill, setNewSkill] = useState("");
@@ -309,7 +309,7 @@ export default function FreelanceProfile() {
 
       <main className="flex-1">
         <div className="container py-8">
-          <Link href={`/profile/${user?.id}`}>
+          <Link href={`/profile/${profile?.id}`}>
             <Button variant="ghost" size="sm" className="mb-6 gap-2" style={{ color: '#6B6560' }}>
               <ArrowLeft className="h-4 w-4" />
               Retour au profil
